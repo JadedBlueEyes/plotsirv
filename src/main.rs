@@ -146,7 +146,72 @@ fn place_blocks(
             };
             inventory.replace_slot(slot_id, slot);
         }
-        let real_pos = event.position.get_in_direction(event.face);
-        instance.set_block_state(real_pos, block_kind.to_state());
+
+        // TODO: client.facing()?
+        let facing = match client.yaw().rem_euclid(360.0) {
+            yaw if (yaw >= 315.0) || (yaw < 45.0) => PropValue::South,
+            yaw if (yaw >= 45.0) && (yaw < 135.0) => PropValue::West,
+            yaw if (yaw >= 135.0) && (yaw < 225.0) => PropValue::North,
+            yaw if (yaw >= 225.0) && (yaw < 315.0) => PropValue::East,
+
+            _ => unreachable!(),
+        };
+
+        let mut block_state = block_kind.to_state();
+
+        let replace = instance.block_state(event.position).is_replaceable();
+
+        // TODO: Is there a better way to do this?
+        // - a has_prop api?
+        // - a is_stairs, is_slab, etc api?
+        let has_facing = block_state.get(PropName::Facing).is_some();
+        let has_half = block_state.get(PropName::Half).is_some();
+
+        let has_type = block_state.get(PropName::Type).is_some();
+
+        if has_facing {
+            block_state = block_state.set(PropName::Facing, facing);
+        }
+
+        if has_half || has_type {
+            match event.face {
+                valence_protocol::BlockFace::Bottom => {
+                    block_state = block_state
+                        .set(PropName::Half, PropValue::Top)
+                        .set(PropName::Type, PropValue::Top);
+                }
+                valence_protocol::BlockFace::Top => {
+                    block_state = block_state
+                        .set(PropName::Half, PropValue::Bottom)
+                        .set(PropName::Type, PropValue::Bottom);
+                }
+                valence_protocol::BlockFace::North
+                | valence_protocol::BlockFace::South
+                | valence_protocol::BlockFace::West
+                | valence_protocol::BlockFace::East => {
+                    let top = event.cursor_pos[1] > 0.5;
+                    let val = match top {
+                        true => PropValue::Top,
+                        false => PropValue::Bottom,
+                    };
+                    block_state = block_state
+                        .set(PropName::Half, val)
+                        .set(PropName::Type, val);
+                }
+            }
+        }
+
+        // !TODO:
+        // - Combine slabs
+        // - 2-high doors
+        // - Open/close (trap)doors
+        // - Stair bending
+
+        let real_pos = if replace {
+            event.position
+        } else {
+            event.position.get_in_direction(event.face)
+        };
+        instance.set_block_state(real_pos, block_state);
     }
 }
