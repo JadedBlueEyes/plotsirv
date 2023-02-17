@@ -202,10 +202,10 @@ fn place_blocks(
 
         // TODO: client.facing()?
         let facing = match client.yaw().rem_euclid(360.0) {
-            yaw if (yaw >= 315.0) || (yaw < 45.0) => PropValue::South,
-            yaw if (yaw >= 45.0) && (yaw < 135.0) => PropValue::West,
-            yaw if (yaw >= 135.0) && (yaw < 225.0) => PropValue::North,
-            yaw if (yaw >= 225.0) && (yaw < 315.0) => PropValue::East,
+            yaw if !(45.0..315.0).contains(&yaw) => PropValue::South,
+            yaw if (45.0..135.0).contains(&yaw) => PropValue::West,
+            yaw if (135.0..225.0).contains(&yaw) => PropValue::North,
+            yaw if (225.0..315.0).contains(&yaw) => PropValue::East,
 
             _ => unreachable!(),
         };
