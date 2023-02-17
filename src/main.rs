@@ -35,7 +35,6 @@ struct Args {
     /// server.
     #[arg(short, long)]
     prevent_proxy_connections: bool,
-
 }
 
 pub fn main() {
@@ -52,20 +51,20 @@ pub fn main() {
         }
     };
     tracing_subscriber::fmt().init();
-    let mut server_plugin = ServerPlugin::new(())
-            .with_connection_mode(connection_mode);
-    
+    let mut server_plugin = ServerPlugin::new(()).with_connection_mode(connection_mode);
+
     if let Some(address) = cli.address {
         server_plugin = server_plugin.with_address(address);
     }
 
     info!("Starting server on {}", server_plugin.address);
 
-    // let server_plugin = server_plugin.with_tokio_handle(Some(tokio::runtime::Handle::current()));
+    // let server_plugin =
+    // server_plugin.with_tokio_handle(Some(tokio::runtime::Handle::current()));
     // let server_plugin = server_plugin.with_max_connections(1024);
 
     App::new()
-        .add_plugin( server_plugin)
+        .add_plugin(server_plugin)
         .add_system_to_stage(EventLoop, default_event_handler)
         .add_system_to_stage(EventLoop, toggle_gamemode_on_sneak)
         .add_system_to_stage(EventLoop, digging_creative_mode)
