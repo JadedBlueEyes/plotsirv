@@ -1,3 +1,5 @@
+use clap::{Parser, ValueEnum};
+use tracing::info;
 use valence::client::despawn_disconnected_clients;
 use valence::client::event::{
     default_event_handler, FinishDigging, StartDigging, StartSneaking, UseItemOnBlock,
@@ -7,11 +9,63 @@ use valence_protocol::types::Hand;
 
 const SPAWN_Y: i32 = 64;
 
+#[derive(ValueEnum, Clone, Debug)]
+enum CliConnectionMode {
+    Online,
+    Offline,
+    Bungeecord,
+    Velocity,
+}
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The socket the server will listen for connections on.
+    #[arg(short, long)]
+    address: Option<std::net::SocketAddr>,
+
+    // The method the server will use to authenticate to clients.
+    #[arg(short, long)]
+    connection_mode: Option<CliConnectionMode>,
+
+    /// Velocity encryption secret.
+    #[arg(short, long)]
+    secret: Option<std::sync::Arc<str>>,
+    /// When in onine mode, validate the client's IP address on the Yggdrasil
+    /// server.
+    #[arg(short, long)]
+    prevent_proxy_connections: bool,
+
+}
+
 pub fn main() {
+    let cli = Args::parse();
+    let connection_mode = match cli.connection_mode.unwrap_or(CliConnectionMode::Online) {
+        CliConnectionMode::Online => ConnectionMode::Online {
+            prevent_proxy_connections: cli.prevent_proxy_connections,
+        },
+        CliConnectionMode::Offline => ConnectionMode::Offline,
+        CliConnectionMode::Bungeecord => ConnectionMode::BungeeCord,
+        CliConnectionMode::Velocity => {
+            let secret = cli.secret.expect("Velocity encryption secret is required");
+            ConnectionMode::Velocity { secret }
+        }
+    };
     tracing_subscriber::fmt().init();
+    let mut server_plugin = ServerPlugin::new(())
+            .with_connection_mode(connection_mode);
+    
+    if let Some(address) = cli.address {
+        server_plugin = server_plugin.with_address(address);
+    }
+
+    info!("Starting server on {}", server_plugin.address);
+
+    // let server_plugin = server_plugin.with_tokio_handle(Some(tokio::runtime::Handle::current()));
+    // let server_plugin = server_plugin.with_max_connections(1024);
 
     App::new()
-        .add_plugin(ServerPlugin::new(()))
+        .add_plugin( server_plugin)
         .add_system_to_stage(EventLoop, default_event_handler)
         .add_system_to_stage(EventLoop, toggle_gamemode_on_sneak)
         .add_system_to_stage(EventLoop, digging_creative_mode)
