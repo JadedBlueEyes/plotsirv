@@ -90,7 +90,7 @@ fn setup(world: &mut World) {
 
     for z in -25..25 {
         for x in -25..25 {
-            instance.set_block_state([x, SPAWN_Y, z], BlockState::GRASS_BLOCK);
+            instance.set_block([x, SPAWN_Y, z], BlockState::GRASS_BLOCK);
         }
     }
 
@@ -138,7 +138,7 @@ fn digging_creative_mode(
             continue;
         };
         if client.game_mode() == GameMode::Creative {
-            instance.set_block_state(event.position, BlockState::AIR);
+            instance.set_block(event.position, BlockState::AIR);
         }
     }
 }
@@ -155,7 +155,7 @@ fn digging_survival_mode(
             continue;
         };
         if client.game_mode() == GameMode::Survival {
-            instance.set_block_state(event.position, BlockState::AIR);
+            instance.set_block(event.position, BlockState::AIR);
         }
     }
 }
@@ -212,7 +212,7 @@ fn place_blocks(
 
         let mut block_state = block_kind.to_state();
 
-        let replace = instance.block_state(event.position).is_replaceable();
+        let replace = instance.block(event.position).expect("chunk to be loaded").state().is_replaceable();
 
         // TODO: Is there a better way to do this?
         // - a has_prop api?
@@ -265,6 +265,6 @@ fn place_blocks(
         } else {
             event.position.get_in_direction(event.face)
         };
-        instance.set_block_state(real_pos, block_state);
+        instance.set_block(real_pos, block_state);
     }
 }
