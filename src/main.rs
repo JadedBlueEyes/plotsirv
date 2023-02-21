@@ -1,5 +1,5 @@
 use clap::{Parser, ValueEnum};
-use tracing::info;
+use tracing::{info, warn};
 use valence::client::despawn_disconnected_clients;
 use valence::client::event::{
     default_event_handler, FinishDigging, StartDigging, StartSneaking, UseItemOnBlock,
@@ -66,7 +66,6 @@ pub fn main() {
     App::new()
         .add_plugin(server_plugin)
         .add_system_to_stage(EventLoop, default_event_handler)
-        .add_system_to_stage(EventLoop, toggle_gamemode_on_sneak)
         .add_system_to_stage(EventLoop, digging_creative_mode)
         .add_system_to_stage(EventLoop, digging_survival_mode)
         .add_system_to_stage(EventLoop, place_blocks)
@@ -106,23 +105,6 @@ fn init_clients(
         client.set_instance(instances.single());
         client.set_game_mode(GameMode::Creative);
         client.send_message("Welcome to Valence! Build something cool.".italic());
-    }
-}
-
-fn toggle_gamemode_on_sneak(
-    mut clients: Query<&mut Client>,
-    mut events: EventReader<StartSneaking>,
-) {
-    for event in events.iter() {
-        let Ok(mut client) = clients.get_component_mut::<Client>(event.client) else {
-            continue;
-        };
-        let mode = client.game_mode();
-        client.set_game_mode(match mode {
-            GameMode::Survival => GameMode::Creative,
-            GameMode::Creative => GameMode::Survival,
-            _ => GameMode::Creative,
-        });
     }
 }
 
@@ -169,9 +151,11 @@ fn place_blocks(
 
     for event in events.iter() {
         let Ok((client, mut inventory)) = clients.get_mut(event.client) else {
+            warn!("Could not find client {:?}", event.client);
             continue;
         };
         if event.hand != Hand::Main {
+            warn!("Item usage with {:?} not supported", event.hand);
             continue;
         }
 
