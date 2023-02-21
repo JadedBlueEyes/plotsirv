@@ -2,7 +2,7 @@ use clap::{Parser, ValueEnum};
 use tracing::{info, warn};
 use valence::client::despawn_disconnected_clients;
 use valence::client::event::{
-    default_event_handler, FinishDigging, StartDigging, StartSneaking, UseItemOnBlock,
+    default_event_handler, FinishDigging, StartDigging, StartSneaking, UseItemOnBlock, ChatMessage,
 };
 use valence::prelude::*;
 use valence_protocol::types::Hand;
@@ -65,6 +65,7 @@ pub fn main() {
 
     App::new()
         .add_plugin(server_plugin)
+        .add_system_to_stage(EventLoop, handle_message_events)
         .add_system_to_stage(EventLoop, default_event_handler)
         .add_system_to_stage(EventLoop, digging_creative_mode)
         .add_system_to_stage(EventLoop, digging_survival_mode)
@@ -105,6 +106,27 @@ fn init_clients(
         client.set_instance(instances.single());
         client.set_game_mode(GameMode::Creative);
         client.send_message("Welcome to Valence! Build something cool.".italic());
+    }
+}
+
+
+fn handle_message_events(mut clients: Query<&mut Client>, mut messages: EventReader<ChatMessage>) {
+    for message in messages.iter() {
+        let Ok(client) = clients.get_component::<Client>(message.client) else {
+            warn!("Unable to find client for message: {:?}", message);
+            continue;
+        };
+
+        let message = message.message.to_string();
+
+        let formatted = format!("<{}>: ", client.username())
+            .bold()
+            .color(Color::YELLOW)
+            + message.into_text().not_bold().color(Color::WHITE);
+
+        clients.par_for_each_mut(16, |mut client| {
+            client.send_message(formatted.clone());
+        })
     }
 }
 
